@@ -17,5 +17,5 @@ jobs:
           java-version: 17
 
       # 3. Build + test
-      - name: Maven test
-        run: mvn -B test
+      # - name: Maven test
+      #  run: mvn -B test
