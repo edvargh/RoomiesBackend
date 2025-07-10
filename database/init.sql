@@ -92,7 +92,7 @@ CREATE TABLE `users` (
   `display_name` varchar(100) NOT NULL,
   `password` char(60) NOT NULL,
   `collective_id` int unsigned DEFAULT NULL,
-  `role` enum('member','admin') DEFAULT 'member',
+  `role` enum('MEMBER','ADMIN') DEFAULT 'MEMBER',
   `confirmed` tinyint(1) DEFAULT '0',
   `confirmation_token` varchar(100) DEFAULT NULL,
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP,

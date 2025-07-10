@@ -29,7 +29,7 @@ public class User {
   private Collective collective;
 
   @Enumerated(EnumType.STRING)
-  @Column(nullable = false, columnDefinition = "ENUM('member','admin') DEFAULT 'member'")
+  @Column(nullable = false, columnDefinition = "ENUM('MEMBER','ADMIN') DEFAULT 'MEMBER'")
   private Role role = Role.MEMBER;
 
   @Column(nullable = false)
