@@ -4,6 +4,7 @@ import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.*;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
@@ -77,18 +78,6 @@ public class GlobalExceptionHandler {
   }
 
   /**
-   * Handles all other exceptions
-   * @param ex the exception thrown
-   * @return a ResponseEntity with an internal server error status and generic error message
-   */
-  @ExceptionHandler(Exception.class)
-  public ResponseEntity<Map<String, String>> handleGeneric(Exception ex) {
-    log.error("Unhandled exception", ex);
-    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-        .body(Map.of(ERROR_KEY, "Unexpected error occurred. Please try again later."));
-  }
-
-  /**
    * Handles MailSendException thrown when an e-mail cannot be delivered.
    */
   @ExceptionHandler(MailSendException.class)
@@ -100,5 +89,29 @@ public class GlobalExceptionHandler {
             ERROR_KEY,
             "Unable to send e-mail at the moment. Please try again later."
         ));
+  }
+
+  /**
+   * Handles AccessDeniedException
+   * @param ex the exception thrown when access is denied
+   * @return a ResponseEntity with a forbidden status and error message
+   */
+  @ExceptionHandler(AccessDeniedException.class)
+  public ResponseEntity<Map<String, String>> handleAccessDenied(AccessDeniedException ex) {
+    log.warn("Access denied : {}", ex.getMessage());
+    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+        .body(Map.of(ERROR_KEY, "You do not have permission to access this resource."));
+  }
+
+  /**
+   * Handles all other exceptions
+   * @param ex the exception thrown
+   * @return a ResponseEntity with an internal server error status and generic error message
+   */
+  @ExceptionHandler(Exception.class)
+  public ResponseEntity<Map<String, String>> handleGeneric(Exception ex) {
+    log.error("Unhandled exception", ex);
+    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+        .body(Map.of(ERROR_KEY, "Unexpected error occurred. Please try again later."));
   }
 }

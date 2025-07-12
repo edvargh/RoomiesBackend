@@ -2,23 +2,24 @@ package com.roomies.entity;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
- * The Collective entity represents a group of users sharing a common space or interest.
+ * The Household entity represents a group of users sharing a common space or interest.
  */
 @Entity
-@Table(name = "collectives")
-public class Collective {
+@Table(name = "households")
+public class Household {
 
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
-  @Column(name = "collective_id", nullable = false, updatable = false)
-  private Long collectiveId;
+  @Column(name = "household_id", nullable = false, updatable = false)
+  private Long householdId;
 
   @Column(nullable = false, length = 100)
   private String name;
+
+  @Column(name = "join_code", nullable = false, unique = true)
+  private String joinCode;
 
   @Column(name = "address_line", length = 200)
   private String addressLine;
@@ -38,19 +39,16 @@ public class Collective {
       updatable = false)
   private LocalDateTime createdAt;
 
-  @OneToMany(mappedBy = "collective")
-  private List<User> users = new ArrayList<>();
-
-  public Collective() {
+  public Household() {
     // Default constructor
   }
 
-  public Long getCollectiveId() {
-    return collectiveId;
+  public Long getHouseholdId() {
+    return householdId;
   }
 
-  public void setCollectiveId(Long collectiveId) {
-    this.collectiveId = collectiveId;
+  public void setHouseholdId(Long householdId) {
+    this.householdId = householdId;
   }
 
   public String getName() {
@@ -59,6 +57,14 @@ public class Collective {
 
   public void setName(String name) {
     this.name = name;
+  }
+
+  public String getJoinCode() {
+    return joinCode;
+  }
+
+  public void setJoinCode(String joinCode) {
+    this.joinCode = joinCode;
   }
 
   public String getAddressLine() {
@@ -95,9 +101,5 @@ public class Collective {
 
   public LocalDateTime getCreatedAt() {
     return createdAt;
-  }
-
-  public List<User> getUsers() {
-    return users;
   }
 }

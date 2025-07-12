@@ -17,10 +17,10 @@ public class ShoppingItem {
 
   @ManyToOne(optional = false)
   @JoinColumn(
-      name = "collective_id",
-      foreignKey = @ForeignKey(name = "fk_shop_collective")
+      name = "household_id",
+      foreignKey = @ForeignKey(name = "fk_shop_household")
   )
-  private Collective collective;
+  private Household household;
 
   @ManyToOne(optional = false)
   @JoinColumn(
@@ -61,8 +61,8 @@ public class ShoppingItem {
   public Long getItemId()                  { return itemId; }
   public void setItemId(Long itemId)       { this.itemId = itemId; }
 
-  public Collective getCollective()        { return collective; }
-  public void setCollective(Collective c)  { this.collective = c; }
+  public Household getHousehold()        { return household; }
+  public void setHousehold(Household c)  { this.household = c; }
 
   public User getAddedBy()                 { return addedBy; }
   public void setAddedBy(User u)           { this.addedBy = u; }
