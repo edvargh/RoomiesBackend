@@ -28,7 +28,7 @@ public class EmailService {
   @Value("${roomies.mail.reset-base-url:http://localhost:8080/reset-password}")
   private String resetBaseUrl;
 
-  @Value("${roomies.mail.reset-valid-min:60}")
+  @Value("${roomies.mail.reset-valid-min}")
   private int resetValidMin;
 
   public EmailService(JavaMailSender mailSender) {

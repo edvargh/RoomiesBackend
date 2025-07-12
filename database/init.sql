@@ -96,6 +96,7 @@ CREATE TABLE `users` (
   `role` enum('MEMBER','ADMIN') DEFAULT 'MEMBER',
   `confirmed` tinyint(1) DEFAULT '0',
   `confirmation_token` varchar(100) DEFAULT NULL,
+  `refresh_token` varchar(500) DEFAULT NULL,
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`user_id`),
   UNIQUE KEY `email` (`email`),

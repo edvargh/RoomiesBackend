@@ -38,6 +38,9 @@ public class User {
   @Column(name = "confirmation_token", length = 100)
   private String confirmationToken;
 
+  @Column(name = "refresh_token")
+  private String refreshToken;
+
   @Column(name = "created_at", columnDefinition = "DATETIME DEFAULT CURRENT_TIMESTAMP")
   private LocalDateTime createdAt;
 
@@ -107,6 +110,14 @@ public class User {
 
   public void setConfirmationToken(String confirmationToken) {
     this.confirmationToken = confirmationToken;
+  }
+
+  public String getRefreshToken() {
+    return refreshToken;
+  }
+
+  public void setRefreshToken(String refreshToken) {
+    this.refreshToken = refreshToken;
   }
 
   public LocalDateTime getCreatedAt() {

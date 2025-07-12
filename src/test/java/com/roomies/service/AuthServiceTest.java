@@ -1,6 +1,8 @@
 package com.roomies.service;
 
 import com.roomies.dto.LoginRequestDto;
+import com.roomies.dto.LoginResponseDto;
+import com.roomies.dto.RefreshTokenRequestDto;
 import com.roomies.dto.RegisterRequestDto;
 import com.roomies.entity.Role;
 import com.roomies.entity.User;
@@ -98,14 +100,17 @@ class AuthServiceTest {
       user.setConfirmed(true);
 
       when(userRepo.findByEmail(request.getEmail())).thenReturn(Optional.of(user));
-      when(jwtService.generateToken(request.getEmail())).thenReturn("jwt-token");
+      when(jwtService.generateToken(request.getEmail())).thenReturn("access-token");
+      when(jwtService.generateRefreshToken(request.getEmail())).thenReturn("refresh-token");
 
       // Act
-      String token = authService.loginUser(request);
+      LoginResponseDto response = authService.loginUser(request);
 
       // Assert
-      assertEquals("jwt-token", token);
+      assertEquals("access-token", response.getAccessToken());
+      assertEquals("refresh-token", response.getRefreshToken());
       verify(authManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
+      verify(userRepo).save(user);
     }
 
     @Test
@@ -140,4 +145,100 @@ class AuthServiceTest {
       assertEquals("User not confirmed", ex.getMessage());
     }
   }
+
+  @Nested
+  class RefreshAccessToken {
+
+    @Test
+    void shouldRefreshAccessAndReturnNewTokens() {
+      // Arrange
+      String oldRefreshToken = "valid-refresh-token";
+      String email = "user@example.com";
+
+      RefreshTokenRequestDto dto = new RefreshTokenRequestDto();
+      dto.setRefreshToken(oldRefreshToken);
+
+      User user = new User();
+      user.setEmail(email);
+      user.setRefreshToken(oldRefreshToken);
+
+      when(jwtService.extractUsernameFromRefreshToken(oldRefreshToken)).thenReturn(email);
+      when(userRepo.findByEmail(email)).thenReturn(Optional.of(user));
+      when(jwtService.isRefreshTokenValid(oldRefreshToken, email)).thenReturn(true);
+      when(jwtService.generateToken(email)).thenReturn("new-access-token");
+      when(jwtService.generateRefreshToken(email)).thenReturn("new-refresh-token");
+
+      // Act
+      LoginResponseDto response = authService.refreshAccessToken(dto);
+
+      // Assert
+      assertEquals("new-access-token", response.getAccessToken());
+      assertEquals("new-refresh-token", response.getRefreshToken());
+      verify(userRepo).save(user);
+    }
+
+    @Test
+    void shouldThrowIfRefreshTokenDoesNotMatchStoredToken() {
+      // Arrange
+      String providedToken = "invalid-token";
+      String email = "user@example.com";
+
+      RefreshTokenRequestDto dto = new RefreshTokenRequestDto();
+      dto.setRefreshToken(providedToken);
+
+      User user = new User();
+      user.setEmail(email);
+      user.setRefreshToken("stored-token");
+
+      when(jwtService.extractUsernameFromRefreshToken(providedToken)).thenReturn(email);
+      when(userRepo.findByEmail(email)).thenReturn(Optional.of(user));
+
+      // Act & Assert
+      IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+          () -> authService.refreshAccessToken(dto));
+      assertEquals("Invalid refresh token", ex.getMessage());
+    }
+
+    @Test
+    void shouldThrowIfRefreshTokenIsInvalidOrExpired() {
+      // Arrange
+      String refreshToken = "expired-token";
+      String email = "user@example.com";
+
+      RefreshTokenRequestDto dto = new RefreshTokenRequestDto();
+      dto.setRefreshToken(refreshToken);
+
+      User user = new User();
+      user.setEmail(email);
+      user.setRefreshToken(refreshToken);
+
+      when(jwtService.extractUsernameFromRefreshToken(refreshToken)).thenReturn(email);
+      when(userRepo.findByEmail(email)).thenReturn(Optional.of(user));
+      when(jwtService.isRefreshTokenValid(refreshToken, email)).thenReturn(false);
+
+      // Act & Assert
+      IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+          () -> authService.refreshAccessToken(dto));
+      assertEquals("Expired or invalid refresh token", ex.getMessage());
+    }
+
+    @Test
+    void shouldThrowIfUserNotFound() {
+      // Arrange
+      String refreshToken = "token";
+      String email = "ghost@example.com";
+
+      RefreshTokenRequestDto dto = new RefreshTokenRequestDto();
+      dto.setRefreshToken(refreshToken);
+
+      when(jwtService.extractUsernameFromRefreshToken(refreshToken)).thenReturn(email);
+      when(userRepo.findByEmail(email)).thenReturn(Optional.empty());
+
+      // Act & Assert
+      IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+          () -> authService.refreshAccessToken(dto));
+      assertEquals("User not found: " + email, ex.getMessage());
+    }
+  }
+
 }
