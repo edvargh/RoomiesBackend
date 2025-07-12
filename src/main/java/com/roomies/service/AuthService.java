@@ -2,7 +2,6 @@ package com.roomies.service;
 
 import com.roomies.dto.LoginRequestDto;
 import com.roomies.dto.RegisterRequestDto;
-import com.roomies.entity.Role;
 import com.roomies.entity.User;
 import com.roomies.repository.UserRepository;
 import com.roomies.security.JwtService;
@@ -59,7 +58,6 @@ public class AuthService {
     u.setDisplayName(req.getDisplayName());
     u.setEmail(req.getEmail());
     u.setPassword(passwordEncoder.encode(req.getPassword()));
-    u.setRole(Role.MEMBER);
 
     String token = UUID.randomUUID().toString();
 

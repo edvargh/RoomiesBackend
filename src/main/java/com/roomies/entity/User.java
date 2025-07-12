@@ -25,8 +25,8 @@ public class User {
   private String password;
 
   @ManyToOne
-  @JoinColumn(name = "collective_id", referencedColumnName = "collective_id", foreignKey = @ForeignKey(name = "fk_users_collective"))
-  private Collective collective;
+  @JoinColumn(name = "household_id", referencedColumnName = "household_id", foreignKey = @ForeignKey(name = "fk_users_household"))
+  private Household household;
 
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, columnDefinition = "ENUM('MEMBER','ADMIN') DEFAULT 'MEMBER'")
@@ -77,12 +77,12 @@ public class User {
     this.password = password;
   }
 
-  public Collective getCollective() {
-    return collective;
+  public Household getHousehold() {
+    return household;
   }
 
-  public void setCollective(Collective collective) {
-    this.collective = collective;
+  public void setHousehold(Household household) {
+    this.household = household;
   }
 
   public Role getRole() {

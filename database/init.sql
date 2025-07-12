@@ -19,18 +19,19 @@
 -- Table structure for table `collectives`
 --
 
-DROP TABLE IF EXISTS `collectives`;
+DROP TABLE IF EXISTS `households`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `collectives` (
-  `collective_id` int unsigned NOT NULL AUTO_INCREMENT,
+CREATE TABLE `households` (
+  `household_id` int unsigned NOT NULL AUTO_INCREMENT,
   `name` varchar(100) NOT NULL,
+  `join_code` varchar(6) NOT NULL UNIQUE,
   `address_line` varchar(200) DEFAULT NULL,
   `zip_code` varchar(20) DEFAULT NULL,
   `city` varchar(100) DEFAULT NULL,
   `country` varchar(100) DEFAULT NULL,
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`collective_id`)
+  PRIMARY KEY (`household_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -38,9 +39,9 @@ CREATE TABLE `collectives` (
 -- Dumping data for table `collectives`
 --
 
-LOCK TABLES `collectives` WRITE;
-/*!40000 ALTER TABLE `collectives` DISABLE KEYS */;
-/*!40000 ALTER TABLE `collectives` ENABLE KEYS */;
+LOCK TABLES `households` WRITE;
+/*!40000 ALTER TABLE `households` DISABLE KEYS */;
+/*!40000 ALTER TABLE `households` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -52,7 +53,7 @@ DROP TABLE IF EXISTS `shopping_items`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `shopping_items` (
   `item_id` int unsigned NOT NULL AUTO_INCREMENT,
-  `collective_id` int unsigned NOT NULL,
+  `household_id` int unsigned NOT NULL,
   `added_by` int unsigned NOT NULL,
   `name` varchar(150) NOT NULL,
   `quantity` varchar(40) DEFAULT '1',
@@ -61,11 +62,11 @@ CREATE TABLE `shopping_items` (
   `added_at` datetime DEFAULT CURRENT_TIMESTAMP,
   `purchased_at` datetime DEFAULT NULL,
   PRIMARY KEY (`item_id`),
-  KEY `fk_shop_collective` (`collective_id`),
+  KEY `fk_shop_household` (`household_id`),
   KEY `fk_shop_added_by` (`added_by`),
   KEY `fk_shop_purchased_by` (`purchased_by`),
   CONSTRAINT `fk_shop_added_by` FOREIGN KEY (`added_by`) REFERENCES `users` (`user_id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_shop_collective` FOREIGN KEY (`collective_id`) REFERENCES `collectives` (`collective_id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_shop_household` FOREIGN KEY (`household_id`) REFERENCES `households` (`household_id`) ON DELETE CASCADE,
   CONSTRAINT `fk_shop_purchased_by` FOREIGN KEY (`purchased_by`) REFERENCES `users` (`user_id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -91,15 +92,15 @@ CREATE TABLE `users` (
   `email` varchar(200) NOT NULL,
   `display_name` varchar(100) NOT NULL,
   `password` char(60) NOT NULL,
-  `collective_id` int unsigned DEFAULT NULL,
+  `household_id` int unsigned DEFAULT NULL,
   `role` enum('MEMBER','ADMIN') DEFAULT 'MEMBER',
   `confirmed` tinyint(1) DEFAULT '0',
   `confirmation_token` varchar(100) DEFAULT NULL,
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`user_id`),
   UNIQUE KEY `email` (`email`),
-  KEY `fk_users_collective` (`collective_id`),
-  CONSTRAINT `fk_users_collective` FOREIGN KEY (`collective_id`) REFERENCES `collectives` (`collective_id`) ON DELETE SET NULL
+  KEY `fk_users_household` (`household_id`),
+  CONSTRAINT `fk_users_household` FOREIGN KEY (`household_id`) REFERENCES `households` (`household_id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
