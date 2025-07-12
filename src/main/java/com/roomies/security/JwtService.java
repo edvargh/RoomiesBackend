@@ -13,14 +13,12 @@ import java.util.function.Function;
 @Service
 public class JwtService {
 
-  @Value("${jwt.secret}")
+  @Value("${jwt.access.secret}")
   private String secretKey;
-
+  @Value("${jwt.refresh.secret}")
+  private String refreshSecretKey;
   private static final long EXPIRATION_MS = 60L * 60 * 1000; // 1 hour
-
-  public String extractUsername(String token) {
-    return extractClaim(token, Claims::getSubject);
-  }
+  private static final long REFRESH_TOKEN_EXPIRATION = 1000L * 60 * 60 * 24 * 7; // 7 days
 
   public String generateToken(String username) {
     return Jwts.builder()
@@ -31,21 +29,23 @@ public class JwtService {
         .compact();
   }
 
-  public boolean isTokenValid(String token, String username) {
-    return username.equals(extractUsername(token)) && !isExpired(token);
+  public boolean isAccessTokenValid(String token, String username) {
+    return username.equals(extractUsernameFromAccessToken(token)) && !isAccessTokenExpired(token);
   }
 
-  /* ---------- internal ---------- */
-
-  private boolean isExpired(String token) {
-    return extractClaim(token, Claims::getExpiration).before(new Date());
+  private boolean isAccessTokenExpired(String token) {
+    return extractAccessClaim(token, Claims::getExpiration).before(new Date());
   }
 
-  private <T> T extractClaim(String token, Function<Claims, T> resolver) {
-    return resolver.apply(allClaims(token));
+  public String extractUsernameFromAccessToken(String token) {
+    return extractAccessClaim(token, Claims::getSubject);
   }
 
-  private Claims allClaims(String token) {
+  private <T> T extractAccessClaim(String token, Function<Claims, T> resolver) {
+    return resolver.apply(getAccessClaims(token));
+  }
+
+  private Claims getAccessClaims(String token) {
     return Jwts.parserBuilder()
         .setSigningKey(getSigningKey())
         .build()
@@ -55,6 +55,46 @@ public class JwtService {
 
   private Key getSigningKey() {
     byte[] keyBytes = secretKey.getBytes(StandardCharsets.UTF_8);
+    return Keys.hmacShaKeyFor(keyBytes);
+  }
+
+  public String generateRefreshToken(String email) {
+    return Jwts.builder()
+        .setSubject(email)
+        .setIssuedAt(new Date())
+        .setExpiration(new Date(System.currentTimeMillis() + REFRESH_TOKEN_EXPIRATION))
+        .signWith(getRefreshSigningKey(), SignatureAlgorithm.HS256)
+        .compact();
+  }
+
+
+  public boolean isRefreshTokenValid(String token, String username) {
+    return username.equals(extractUsernameFromRefreshToken(token)) &&
+        !isRefreshTokenExpired(token);
+  }
+
+  private boolean isRefreshTokenExpired(String token) {
+    return extractRefreshClaim(token, Claims::getExpiration).before(new Date());
+  }
+
+  public String extractUsernameFromRefreshToken(String token) {
+    return extractRefreshClaim(token, Claims::getSubject);
+  }
+
+  public <T> T extractRefreshClaim(String token, Function<Claims, T> resolver) {
+    return resolver.apply(getRefreshClaims(token));
+  }
+
+  private Claims getRefreshClaims(String token) {
+    return Jwts.parserBuilder()
+        .setSigningKey(getRefreshSigningKey())
+        .build()
+        .parseClaimsJws(token)
+        .getBody();
+  }
+
+  private Key getRefreshSigningKey() {
+    byte[] keyBytes = refreshSecretKey.getBytes(StandardCharsets.UTF_8);
     return Keys.hmacShaKeyFor(keyBytes);
   }
 }

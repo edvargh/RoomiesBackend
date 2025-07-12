@@ -35,6 +35,19 @@ public class GlobalExceptionHandler {
   }
 
   /**
+   * Handles IllegalStateException
+   * @param ex the exception thrown
+   * @return a ResponseEntity with a bad request status and error message
+   */
+  @ExceptionHandler(IllegalStateException.class)
+  public ResponseEntity<Map<String, String>> handleIllegalState(IllegalStateException ex) {
+    log.warn("IllegalStateException : {}", ex.getMessage());
+    return ResponseEntity.badRequest()
+        .body(Map.of(ERROR_KEY, ex.getMessage()));
+  }
+
+
+  /**
    * Handles MethodArgumentNotValidException
    * @param ex the exception thrown when validation fails
    * @return a ResponseEntity with a bad request status and validation error details

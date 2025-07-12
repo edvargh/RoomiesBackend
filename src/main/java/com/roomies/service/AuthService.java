@@ -1,6 +1,8 @@
 package com.roomies.service;
 
 import com.roomies.dto.LoginRequestDto;
+import com.roomies.dto.LoginResponseDto;
+import com.roomies.dto.RefreshTokenRequestDto;
 import com.roomies.dto.RegisterRequestDto;
 import com.roomies.entity.User;
 import com.roomies.repository.UserRepository;
@@ -73,7 +75,8 @@ public class AuthService {
    * @param req the login request containing email and password
    * @return the generated JWT token
    */
-  public String loginUser(LoginRequestDto req) {
+  @Transactional
+  public LoginResponseDto loginUser(LoginRequestDto req) {
     log.debug("Authenticating {}", req.getEmail());
 
     User user = userRepo.findByEmail(req.getEmail())
@@ -90,6 +93,34 @@ public class AuthService {
     authManager.authenticate(
         new UsernamePasswordAuthenticationToken(req.getEmail(), req.getPassword()));
 
-    return jwtService.generateToken(req.getEmail());
+    String accessToken = jwtService.generateToken(req.getEmail());
+    String refreshToken = jwtService.generateRefreshToken(req.getEmail());
+
+    user.setRefreshToken(refreshToken);
+    userRepo.save(user);
+
+    return new LoginResponseDto(accessToken, refreshToken);
+  }
+
+  public LoginResponseDto refreshAccessToken(RefreshTokenRequestDto dto) {
+    String email = jwtService.extractUsernameFromRefreshToken(dto.getRefreshToken());
+
+    User user = userRepo.findByEmail(email)
+        .orElseThrow(() -> new IllegalArgumentException("User not found: " + email));
+
+    if (!dto.getRefreshToken().equals(user.getRefreshToken())) {
+      throw new IllegalArgumentException("Invalid refresh token");
+    }
+
+    if (!jwtService.isRefreshTokenValid(dto.getRefreshToken(), email)) {
+      throw new IllegalArgumentException("Expired or invalid refresh token");
+    }
+
+    log.debug("Refreshing token for {}", email);
+    String newAccessToken = jwtService.generateToken(email);
+    String newRefreshToken = jwtService.generateRefreshToken(email);
+    user.setRefreshToken(newRefreshToken);
+    userRepo.save(user);
+    return new LoginResponseDto(newAccessToken, newRefreshToken);
   }
 }
