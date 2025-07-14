@@ -1,5 +1,6 @@
 package com.roomies.exception;
 
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -114,6 +115,18 @@ public class GlobalExceptionHandler {
     log.warn("Access denied : {}", ex.getMessage());
     return ResponseEntity.status(HttpStatus.FORBIDDEN)
         .body(Map.of(ERROR_KEY, "You do not have permission to access this resource."));
+  }
+
+  /**
+   * Handles EntityNotFoundException
+   * @param ex the exception thrown when an entity is not found or access is denied
+   * @return a ResponseEntity with a forbidden status and error message
+   */
+  @ExceptionHandler(EntityNotFoundException.class)
+  public ResponseEntity<Map<String, String>> handleEntityNotFound(EntityNotFoundException ex) {
+    log.warn("Entity not found: {}", ex.getMessage());
+    return ResponseEntity.status(HttpStatus.NOT_FOUND)
+        .body(Map.of(ERROR_KEY, "The resource could not be found"));
   }
 
   /**

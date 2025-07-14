@@ -8,7 +8,8 @@ services:
     env_file:
       - .env
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
     networks:
       - roomies-net
 
@@ -26,6 +27,14 @@ services:
       - "3307:3306"
     networks:
       - roomies-net
+
+    healthcheck:
+      test: [ "CMD-SHELL", "mysqladmin ping -h localhost -u root -p$${MYSQL_ROOT_PASSWORD} --silent" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    # ----------------------------------
 
 networks:
   roomies-net:
