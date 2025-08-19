@@ -17,7 +17,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/household")
-@CrossOrigin(origins = "http://localhost:5173")
 public class HouseholdController {
 
   private final HouseholdService householdService;
