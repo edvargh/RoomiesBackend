@@ -208,6 +208,38 @@ CREATE TABLE `task_logs` (
    Done – paste up to this line into init.sql
 ------------------------------------------------------ */
 
+START TRANSACTION;
+
+-- Create a test household
+INSERT INTO households (name, join_code, address_line, zip_code, city, country)
+VALUES ('Roomies Test Household', 'TST123', 'Test Street 1', '0001', 'Trondheim', 'Norway');
+
+SET @hh := LAST_INSERT_ID();
+
+-- Create a MEMBER user (confirmed) in that household
+INSERT INTO users (email, display_name, password, household_id, role, confirmed)
+VALUES (
+           'tester@roomies.dev',
+           'Frontend Tester',
+           '$2b$10$6REyMhnWTZxQUTfKpq1P9O/YYpNGfhduYAg/J7UOdDTrppuRW1426',
+           @hh,
+           'MEMBER',
+           1
+       );
+
+-- (Optional) Create an ADMIN in the same household, same password
+INSERT INTO users (email, display_name, password, household_id, role, confirmed)
+VALUES (
+           'admin@roomies.dev',
+           'Admin Tester',
+           '$2b$10$6REyMhnWTZxQUTfKpq1P9O/YYpNGfhduYAg/J7UOdDTrppuRW1426',
+           @hh,
+           'ADMIN',
+           1
+       );
+
+COMMIT;
+
 
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
