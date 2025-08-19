@@ -16,7 +16,7 @@
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
--- Table structure for table `collectives`
+-- Table structure for table `households`
 --
 
 DROP TABLE IF EXISTS `households`;
@@ -36,12 +36,46 @@ CREATE TABLE `households` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Dumping data for table `collectives`
+-- Dumping data for table `households`
 --
 
 LOCK TABLES `households` WRITE;
 /*!40000 ALTER TABLE `households` DISABLE KEYS */;
 /*!40000 ALTER TABLE `households` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `users`
+--
+
+DROP TABLE IF EXISTS `users`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `users` (
+                         `user_id` int unsigned NOT NULL AUTO_INCREMENT,
+                         `email` varchar(200) NOT NULL,
+                         `display_name` varchar(100) NOT NULL,
+                         `password` char(60) NOT NULL,
+                         `household_id` int unsigned DEFAULT NULL,
+                         `role` enum('MEMBER','ADMIN') DEFAULT 'MEMBER',
+                         `confirmed` tinyint(1) DEFAULT '0',
+                         `confirmation_token` varchar(100) DEFAULT NULL,
+                         `refresh_token` varchar(500) DEFAULT NULL,
+                         `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+                         PRIMARY KEY (`user_id`),
+                         UNIQUE KEY `email` (`email`),
+                         KEY `fk_users_household` (`household_id`),
+                         CONSTRAINT `fk_users_household` FOREIGN KEY (`household_id`) REFERENCES `households` (`household_id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `users`
+--
+
+LOCK TABLES `users` WRITE;
+/*!40000 ALTER TABLE `users` DISABLE KEYS */;
+/*!40000 ALTER TABLE `users` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -80,39 +114,101 @@ LOCK TABLES `shopping_items` WRITE;
 /*!40000 ALTER TABLE `shopping_items` ENABLE KEYS */;
 UNLOCK TABLES;
 
---
--- Table structure for table `users`
---
+/* ------------------------------------------------------
+   TASKS + supporting tables
+------------------------------------------------------ */
 
-DROP TABLE IF EXISTS `users`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `users` (
-  `user_id` int unsigned NOT NULL AUTO_INCREMENT,
-  `email` varchar(200) NOT NULL,
-  `display_name` varchar(100) NOT NULL,
-  `password` char(60) NOT NULL,
-  `household_id` int unsigned DEFAULT NULL,
-  `role` enum('MEMBER','ADMIN') DEFAULT 'MEMBER',
-  `confirmed` tinyint(1) DEFAULT '0',
-  `confirmation_token` varchar(100) DEFAULT NULL,
-  `refresh_token` varchar(500) DEFAULT NULL,
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`user_id`),
-  UNIQUE KEY `email` (`email`),
-  KEY `fk_users_household` (`household_id`),
-  CONSTRAINT `fk_users_household` FOREIGN KEY (`household_id`) REFERENCES `households` (`household_id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+-- 1. Core task definition
+DROP TABLE IF EXISTS `tasks`;
+CREATE TABLE `tasks` (
+                         `task_id`      INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                         `household_id` INT UNSIGNED NOT NULL,
 
---
--- Dumping data for table `users`
---
+                         `description`  VARCHAR(255) NOT NULL
+                             CHECK (CHAR_LENGTH(description) > 2),
 
-LOCK TABLES `users` WRITE;
-/*!40000 ALTER TABLE `users` DISABLE KEYS */;
-/*!40000 ALTER TABLE `users` ENABLE KEYS */;
-UNLOCK TABLES;
+                         `frequency`    ENUM('ONCE','DAILY','EVERY_OTHER_DAY',
+                             'WEEKLY','EVERY_OTHER_WEEK','MONTHLY')
+                                                     NOT NULL,
+
+                         `rotation`     ENUM('SINGLE','TEAM') NOT NULL DEFAULT 'SINGLE',
+
+                         `start_date`   DATETIME NOT NULL DEFAULT (CURRENT_DATE),
+                         `next_due`     DATETIME NOT NULL,
+
+                         `created_at`   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                         `updated_at`   DATETIME NOT NULL
+                                                                       DEFAULT CURRENT_TIMESTAMP
+                             ON UPDATE CURRENT_TIMESTAMP,
+
+                         PRIMARY KEY (`task_id`),
+                         KEY `idx_tasks_next_due`  (`next_due`),
+                         KEY `idx_tasks_household` (`household_id`),
+
+                         CONSTRAINT `fk_tasks_household`
+                             FOREIGN KEY (`household_id`)
+                                 REFERENCES `households` (`household_id`)
+                                 ON DELETE CASCADE
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_0900_ai_ci;
+
+
+-- 2. Many‑to‑many link: which users are responsible for a task
+DROP TABLE IF EXISTS `task_responsibles`;
+CREATE TABLE `task_responsibles` (
+                                     `responsible_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                                     `task_id` INT UNSIGNED NOT NULL,
+                                     `user_id` INT UNSIGNED NOT NULL,
+                                     `position` INT         NOT NULL DEFAULT 1,
+
+                                     PRIMARY KEY (`responsible_id`),
+                                     UNIQUE KEY uk_task_user (`task_id`, `user_id`),
+
+                                     CONSTRAINT `fk_responsible_task`
+                                         FOREIGN KEY (`task_id`)
+                                             REFERENCES `tasks` (`task_id`)
+                                             ON DELETE CASCADE,
+
+                                     CONSTRAINT `fk_responsible_user`
+                                         FOREIGN KEY (`user_id`)
+                                             REFERENCES `users` (`user_id`)
+                                             ON DELETE CASCADE
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_0900_ai_ci;
+
+
+-- 3. History of completions
+DROP TABLE IF EXISTS `task_logs`;
+CREATE TABLE `task_logs` (
+                             `log_id`       INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                             `task_id`      INT UNSIGNED NOT NULL,
+                             `completed_by` INT UNSIGNED NOT NULL,
+                             `completed_at` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+                             PRIMARY KEY (`log_id`),
+                             KEY `idx_logs_task` (`task_id`),
+                             KEY `idx_logs_user` (`completed_by`),
+
+                             CONSTRAINT `fk_logs_task`
+                                 FOREIGN KEY (`task_id`)
+                                     REFERENCES `tasks` (`task_id`)
+                                     ON DELETE CASCADE,
+
+                             CONSTRAINT `fk_logs_user`
+                                 FOREIGN KEY (`completed_by`)
+                                     REFERENCES `users` (`user_id`)
+                                     ON DELETE CASCADE
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_0900_ai_ci;
+
+/* ------------------------------------------------------
+   Done – paste up to this line into init.sql
+------------------------------------------------------ */
+
+
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
