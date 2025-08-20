@@ -1,10 +1,8 @@
 package com.roomies.dto;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.roomies.entity.Household;
 import com.roomies.entity.User;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class HouseholdDetailsResponseDto {
 
@@ -40,7 +38,7 @@ public class HouseholdDetailsResponseDto {
         h.getHouseholdId(),
         h.getName(),
         h.getJoinCode(),
-        members.stream().map(HouseholdMemberDto::fromEntity).collect(Collectors.toList())
+        members.stream().map(HouseholdMemberDto::fromEntity).toList()
     );
   }
 }

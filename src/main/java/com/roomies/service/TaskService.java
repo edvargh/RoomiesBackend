@@ -16,7 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.stream.Collectors;
 
 /** Service for handling task related operations. */
 @Service
@@ -96,7 +95,7 @@ public class TaskService {
     return taskRepo.findByHousehold_HouseholdIdOrderByNextDueAsc(hhId).stream()
         .map(task -> TaskMapper.toDto(task,
             respRepo.findAllByTask_TaskIdOrderByPositionAsc(task.getTaskId())))
-        .collect(Collectors.toList());
+        .toList();
   }
 
   @Transactional(readOnly = true)

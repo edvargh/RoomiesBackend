@@ -3,7 +3,7 @@ package com.roomies.dto;
 public class TaskResponsibleDto {
 
   private Long userId;
-  private String fullName; // optional but handy for UI
+  private String fullName;
   private Integer position;
 
   public TaskResponsibleDto() {
