@@ -6,6 +6,8 @@ import com.roomies.entity.ShoppingItem;
 import com.roomies.entity.User;
 import com.roomies.repository.ShoppingItemRepository;
 import com.roomies.repository.UserRepository;
+import jakarta.persistence.EntityNotFoundException;
+import java.time.LocalDateTime;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -15,6 +17,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
 import java.util.Optional;
+import org.springframework.security.access.AccessDeniedException;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -169,6 +172,134 @@ class ShoppingItemServiceTest {
       verify(shoppingItemRepo).save(item);
       assertEquals("Bread", item.getName());
       assertEquals("1", item.getQuantity());
+    }
+  }
+
+  @Nested
+  class TogglePurchased {
+
+    @Test
+    void shouldMarkAsPurchasedWhenNotPurchased() {
+      // Arrange
+      String email = "user@example.com";
+      Household household = new Household(); household.setHouseholdId(1L);
+
+      User user = new User();
+      user.setEmail(email);
+      user.setHousehold(household);
+
+      ShoppingItem item = new ShoppingItem();
+      item.setItemId(100L);
+      item.setHousehold(household);
+      item.setPurchased(false);
+
+      when(shoppingItemRepo.findById(100L)).thenReturn(Optional.of(item));
+      when(userRepo.findByEmail(email)).thenReturn(Optional.of(user));
+
+      // Act
+      shoppingItemService.togglePurchased(100L, email);
+
+      // Assert
+      assertTrue(item.isPurchased());
+      assertEquals(user, item.getPurchasedBy());
+      assertNotNull(item.getPurchasedAt()); // don't assert exact time; just not null
+
+      // No explicit save() in togglePurchased; it's fine not to verify save
+      verify(shoppingItemRepo).findById(100L);
+      verify(userRepo, times(2)).findByEmail(email);
+    }
+
+    @Test
+    void shouldUnmarkAsPurchasedWhenAlreadyPurchased() {
+      // Arrange
+      String email = "user@example.com";
+      Household household = new Household(); household.setHouseholdId(1L);
+
+      User user = new User();
+      user.setEmail(email);
+      user.setHousehold(household);
+
+      ShoppingItem item = new ShoppingItem();
+      item.setItemId(101L);
+      item.setHousehold(household);
+      item.setPurchased(true);
+      item.setPurchasedBy(user);
+      item.setPurchasedAt(LocalDateTime.now().minusMinutes(5));
+
+      when(shoppingItemRepo.findById(101L)).thenReturn(Optional.of(item));
+      when(userRepo.findByEmail(email)).thenReturn(Optional.of(user));
+
+      // Act
+      shoppingItemService.togglePurchased(101L, email);
+
+      // Assert
+      assertFalse(item.isPurchased());
+      assertNull(item.getPurchasedBy());
+      assertNull(item.getPurchasedAt());
+
+      verify(shoppingItemRepo).findById(101L);
+      verify(userRepo).findByEmail(email);
+    }
+
+    @Test
+    void shouldThrowAccessDeniedIfUserNotInSameHousehold() {
+      // Arrange
+      String email = "user@example.com";
+      Household h1 = new Household(); h1.setHouseholdId(1L);
+      Household h2 = new Household(); h2.setHouseholdId(2L);
+
+      User user = new User();
+      user.setEmail(email);
+      user.setHousehold(h1);
+
+      ShoppingItem item = new ShoppingItem();
+      item.setItemId(102L);
+      item.setHousehold(h2); // different household
+
+      when(shoppingItemRepo.findById(102L)).thenReturn(Optional.of(item));
+      when(userRepo.findByEmail(email)).thenReturn(Optional.of(user));
+
+      // Act & Assert
+      assertThrows(AccessDeniedException.class,
+          () -> shoppingItemService.togglePurchased(102L, email));
+
+      verify(shoppingItemRepo).findById(102L);
+      verify(userRepo).findByEmail(email);
+    }
+
+    @Test
+    void shouldThrowIfItemNotFound() {
+      // Arrange
+      String email = "user@example.com";
+      when(shoppingItemRepo.findById(999L)).thenReturn(Optional.empty());
+
+      // Act & Assert
+      assertThrows(EntityNotFoundException.class,
+          () -> shoppingItemService.togglePurchased(999L, email));
+
+      verify(shoppingItemRepo).findById(999L);
+      verify(userRepo, never()).findByEmail(anyString());
+    }
+
+    @Test
+    void shouldThrowIfAuthenticatedUserNotFound() {
+      // Arrange
+      String email = "missing@example.com";
+      Household household = new Household(); household.setHouseholdId(1L);
+
+      ShoppingItem item = new ShoppingItem();
+      item.setItemId(103L);
+      item.setHousehold(household);
+
+      when(shoppingItemRepo.findById(103L)).thenReturn(Optional.of(item));
+      when(userRepo.findByEmail(email)).thenReturn(Optional.empty());
+
+      // Act & Assert
+      assertThrows(EntityNotFoundException.class,
+          () -> shoppingItemService.togglePurchased(103L, email));
+
+      verify(shoppingItemRepo).findById(103L);
+      verify(userRepo).findByEmail(email);
     }
   }
 }

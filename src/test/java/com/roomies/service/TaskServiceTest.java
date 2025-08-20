@@ -1,6 +1,7 @@
 package com.roomies.service;
 
 import com.roomies.dto.TaskCreateRequestDto;
+import com.roomies.dto.TaskResponseDto;
 import com.roomies.dto.TaskUpdateRequestDto;
 import com.roomies.entity.*;
 import com.roomies.repository.*;
@@ -204,4 +205,87 @@ class TaskServiceTest {
       assertEquals(Frequency.WEEKLY, task.getFrequency());
     }
   }
+
+  @Nested
+  class GetTasksForHousehold {
+
+    @Test
+    void shouldReturnMappedDtosForUsersHousehold() {
+      String email = "user@example.com";
+
+      Household household = new Household();
+      household.setHouseholdId(1L);
+
+      User user = new User();
+      user.setEmail(email);
+      user.setDisplayName("Alice");
+      user.setHousehold(household);
+
+      Task task = new Task();
+      task.setTaskId(11L);
+      task.setHousehold(household);
+      task.setDescription("Clean kitchen");
+      task.setFrequency(Frequency.DAILY);
+      task.setRotation(Rotation.SINGLE);
+      task.setStartDate(LocalDate.now());
+
+      TaskResponsible resp = new TaskResponsible();
+      resp.setTask(task);
+      resp.setUser(user);
+      resp.setPosition(1);
+
+      when(userRepo.findByEmail(email)).thenReturn(Optional.of(user));
+      when(taskRepo.findByHousehold_HouseholdIdOrderByNextDueAsc(1L)).thenReturn(List.of(task));
+      when(respRepo.findAllByTask_TaskIdOrderByPositionAsc(11L)).thenReturn(List.of(resp));
+
+      // Act
+      List<TaskResponseDto> result = taskService.getTasksForHousehold(email);
+
+      // Assert
+      assertEquals(1, result.size());
+      TaskResponseDto dto = result.get(0);
+      assertEquals("Clean kitchen", dto.getDescription());
+      assertEquals(Frequency.DAILY, dto.getFrequency());
+      assertEquals(1, dto.getResponsibles().size());
+      assertEquals("Alice", dto.getResponsibles().get(0).getFullName());
+    }
+  }
+
+  @Nested
+  class GetTaskById {
+    @Test
+    void shouldReturnSingleMappedTask() {
+      String email = "user@example.com";
+      Household household = new Household(); household.setHouseholdId(1L);
+
+      User user = new User(); user.setEmail(email); user.setDisplayName("Bob"); user.setHousehold(household);
+
+      Task task = new Task();
+      task.setTaskId(77L);
+      task.setHousehold(household);
+      task.setDescription("Vacuum living room");
+      task.setFrequency(Frequency.WEEKLY);
+      task.setRotation(Rotation.SINGLE);
+      task.setStartDate(LocalDate.now());
+
+      TaskResponsible resp = new TaskResponsible();
+      resp.setTask(task);
+      resp.setUser(user);
+      resp.setPosition(1);
+
+      when(userRepo.findByEmail(email)).thenReturn(Optional.of(user));
+      when(taskRepo.findById(77L)).thenReturn(Optional.of(task));
+      when(respRepo.findAllByTask_TaskIdOrderByPositionAsc(77L)).thenReturn(List.of(resp));
+
+      // Act
+      TaskResponseDto dto = taskService.getTaskById(77L, email);
+
+      // Assert
+      assertEquals("Vacuum living room", dto.getDescription());
+      assertEquals(Frequency.WEEKLY, dto.getFrequency());
+      assertEquals(1, dto.getResponsibles().size());
+      assertEquals("Bob", dto.getResponsibles().get(0).getFullName());
+    }
+  }
+
 }

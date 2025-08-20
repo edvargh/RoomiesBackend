@@ -15,7 +15,6 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.stream.Collectors;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -75,7 +74,7 @@ public class ShoppingItemService {
     return shoppingItemRepo.findByHousehold_HouseholdId(household.getHouseholdId())
         .stream()
         .map(ShoppingItemResponseDto::fromEntity)
-        .collect(Collectors.toList());
+        .toList();
   }
 
   /**

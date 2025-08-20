@@ -1,12 +1,15 @@
 package com.roomies.service;
 
 import com.roomies.dto.HouseholdCreateDto;
+import com.roomies.dto.HouseholdDetailsResponseDto;
 import com.roomies.dto.JoinHouseholdRequestDto;
 import com.roomies.entity.Household;
 import com.roomies.entity.Role;
 import com.roomies.entity.User;
 import com.roomies.repository.HouseholdRepository;
 import com.roomies.repository.UserRepository;
+import jakarta.persistence.EntityNotFoundException;
+import java.util.List;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -148,6 +151,96 @@ class HouseholdServiceTest {
       // Act & Assert
       assertThrows(IllegalArgumentException.class,
           () -> householdService.joinHousehold(dto, email));
+    }
+  }
+
+  @Nested
+  class GetMyHouseholdDetails {
+
+    @Test
+    void shouldReturnHouseholdDetailsForMember() {
+      // Arrange
+      String email = "member@example.com";
+
+      Household household = new Household();
+      household.setHouseholdId(42L);
+      household.setName("Cool House");
+      household.setJoinCode("ABC123");
+
+      User currentUser = new User();
+      currentUser.setEmail(email);
+      currentUser.setHousehold(household);
+
+      User alice = new User();
+      alice.setUserId(1L);
+      alice.setEmail("alice@example.com");
+      alice.setDisplayName("Alice");
+      alice.setHousehold(household);
+
+      User bob = new User();
+      bob.setUserId(2L);
+      bob.setEmail("bob@example.com");
+      bob.setDisplayName("Bob");
+      bob.setHousehold(household);
+
+      when(userRepo.findByEmail(email)).thenReturn(Optional.of(currentUser));
+      when(userRepo.findByHousehold_HouseholdIdOrderByDisplayNameAsc(42L))
+          .thenReturn(List.of(alice, bob));
+
+      // Act
+      HouseholdDetailsResponseDto dto = householdService.getMyHouseholdDetails(email);
+
+      // Assert
+      assertNotNull(dto);
+      assertEquals(42L, dto.getHouseholdId());
+      assertEquals("Cool House", dto.getName());
+      assertEquals("ABC123", dto.getJoinCode());
+      assertNotNull(dto.getMembers());
+      assertEquals(2, dto.getMembers().size());
+      // order should match the sorted list from repo
+      assertEquals("Alice", dto.getMembers().get(0).getDisplayName());
+      assertEquals("alice@example.com", dto.getMembers().get(0).getEmail());
+      assertEquals(Long.valueOf(1L), dto.getMembers().get(0).getUserId());
+
+      assertEquals("Bob", dto.getMembers().get(1).getDisplayName());
+      assertEquals("bob@example.com", dto.getMembers().get(1).getEmail());
+      assertEquals(Long.valueOf(2L), dto.getMembers().get(1).getUserId());
+
+      verify(userRepo).findByEmail(email);
+      verify(userRepo).findByHousehold_HouseholdIdOrderByDisplayNameAsc(42L);
+      verifyNoMoreInteractions(userRepo);
+    }
+
+    @Test
+    void shouldThrowIfUserNotFound() {
+      // Arrange
+      String email = "missing@example.com";
+      when(userRepo.findByEmail(email)).thenReturn(Optional.empty());
+
+      // Act & Assert
+      assertThrows(EntityNotFoundException.class,
+          () -> householdService.getMyHouseholdDetails(email));
+
+      verify(userRepo).findByEmail(email);
+      verify(userRepo, never()).findByHousehold_HouseholdIdOrderByDisplayNameAsc(anyLong());
+    }
+
+    @Test
+    void shouldThrowIfUserHasNoHousehold() {
+      // Arrange
+      String email = "loner@example.com";
+      User user = new User();
+      user.setEmail(email);
+      user.setHousehold(null);
+
+      when(userRepo.findByEmail(email)).thenReturn(Optional.of(user));
+
+      // Act & Assert
+      assertThrows(IllegalStateException.class,
+          () -> householdService.getMyHouseholdDetails(email));
+
+      verify(userRepo).findByEmail(email);
+      verify(userRepo, never()).findByHousehold_HouseholdIdOrderByDisplayNameAsc(anyLong());
     }
   }
 }
