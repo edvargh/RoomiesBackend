@@ -1,13 +1,16 @@
 package com.roomies.service;
 
 import com.roomies.dto.HouseholdCreateDto;
+import com.roomies.dto.HouseholdDetailsResponseDto;
 import com.roomies.dto.JoinHouseholdRequestDto;
 import com.roomies.entity.Household;
 import com.roomies.entity.Role;
 import com.roomies.entity.User;
 import com.roomies.repository.HouseholdRepository;
 import com.roomies.repository.UserRepository;
+import jakarta.persistence.EntityNotFoundException;
 import java.security.SecureRandom;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.access.AccessDeniedException;
@@ -37,8 +40,7 @@ public class HouseholdService {
    */
   @Transactional
   public void createHousehold(HouseholdCreateDto dto, String email) {
-    User user = userRepo.findByEmail(email)
-        .orElseThrow(() -> new IllegalArgumentException("User not found: " + email));
+    User user = getUser(email);
 
     if (!user.isConfirmed()) {
       throw new AccessDeniedException("User must confirm email before creating a household.");
@@ -54,10 +56,17 @@ public class HouseholdService {
     log.debug("Household created with ID: {}", household.getHouseholdId());
   }
 
+  /**
+   * Allows a user to join an existing household using a join code.
+   *
+   * @param dto the request data transfer object containing the join code
+   * @param email the email of the user trying to join
+   * @throws IllegalArgumentException if the user or household is not found
+   * @throws IllegalStateException if the user already belongs to a household
+   */
   @Transactional
   public void joinHousehold(JoinHouseholdRequestDto dto, String email) {
-    User user = userRepo.findByEmail(email)
-        .orElseThrow(() -> new IllegalArgumentException("User not found: " + email));
+    User user = getUser(email);
 
     Household household = householdRepo.findByJoinCode(dto.getJoinCode())
         .orElseThrow(() -> new IllegalArgumentException("Household not found with join code: " + dto.getJoinCode()));
@@ -69,6 +78,26 @@ public class HouseholdService {
     user.setHousehold(household);
     userRepo.save(user);
     log.debug("User {} joined household {}", user.getEmail(), household.getHouseholdId());
+  }
+
+  /**
+   * Retrieves the details of the authenticated user's household.
+   *
+   * @param email the email of the authenticated user
+   * @return a DTO containing household details and members
+   * @throws IllegalArgumentException if the user is not found
+   * @throws IllegalStateException if the user does not belong to a household
+   */
+  @Transactional(readOnly = true)
+  public HouseholdDetailsResponseDto getMyHouseholdDetails(String email) {
+    User user = getUser(email);
+    Household household = user.getHousehold();
+    if (household == null) {
+      throw new IllegalStateException("User must be part of a household");
+    }
+    List<User> members = userRepo.findByHousehold_HouseholdIdOrderByDisplayNameAsc(household.getHouseholdId());
+    log.debug("Returning household {} with {} members", household.getHouseholdId(), members.size());
+    return HouseholdDetailsResponseDto.fromEntity(household, members);
   }
 
   /**
@@ -91,5 +120,10 @@ public class HouseholdService {
     } while (householdRepo.existsByJoinCode(code));
 
     return code;
+  }
+
+  private User getUser(String email) {
+    return userRepo.findByEmail(email)
+        .orElseThrow(() -> new EntityNotFoundException("User not found: " + email));
   }
 }

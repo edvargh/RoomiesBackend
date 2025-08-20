@@ -15,7 +15,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserController {
 
   private final UserService userService;
-  private static final String MESSAGE_KEY = "message";
 
   public UserController(UserService userService) {
     this.userService = userService;
