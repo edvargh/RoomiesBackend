@@ -1,8 +1,8 @@
 package com.roomies.service;
 
-import com.roomies.dto.TaskCreateRequestDto;
-import com.roomies.dto.TaskResponseDto;
-import com.roomies.dto.TaskUpdateRequestDto;
+import com.roomies.dto.task.TaskCreateRequestDto;
+import com.roomies.dto.task.TaskResponseDto;
+import com.roomies.dto.task.TaskUpdateRequestDto;
 import com.roomies.entity.*;
 import com.roomies.repository.*;
 import java.time.LocalDate;

@@ -1,4 +1,4 @@
-package com.roomies.dto;
+package com.roomies.dto.shoppingitem;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;

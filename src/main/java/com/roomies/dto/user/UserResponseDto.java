@@ -1,4 +1,4 @@
-package com.roomies.dto;
+package com.roomies.dto.user;
 
 import com.roomies.entity.User;
 import com.roomies.entity.Household;

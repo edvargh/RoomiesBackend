@@ -1,13 +1,16 @@
 package com.roomies.service;
 
-import com.roomies.dto.ShoppingItemRequestDto;
+import com.roomies.dto.shoppingitem.ShoppingItemRequestDto;
 import com.roomies.entity.Household;
 import com.roomies.entity.ShoppingItem;
 import com.roomies.entity.User;
 import com.roomies.repository.ShoppingItemRepository;
 import com.roomies.repository.UserRepository;
-import jakarta.persistence.EntityNotFoundException;
 import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -176,130 +179,164 @@ class ShoppingItemServiceTest {
   }
 
   @Nested
-  class TogglePurchased {
+  class MarkPurchasedBatch {
 
-    @Test
-    void shouldMarkAsPurchasedWhenNotPurchased() {
-      // Arrange
-      String email = "user@example.com";
-      Household household = new Household(); household.setHouseholdId(1L);
+    private User makeUser(String email, Long hhId) {
+      User u = new User();
+      u.setEmail(email);
+      Household h = new Household();
+      h.setHouseholdId(hhId);
+      u.setHousehold(h);
+      return u;
+    }
 
-      User user = new User();
-      user.setEmail(email);
-      user.setHousehold(household);
-
-      ShoppingItem item = new ShoppingItem();
-      item.setItemId(100L);
-      item.setHousehold(household);
-      item.setPurchased(false);
-
-      when(shoppingItemRepo.findById(100L)).thenReturn(Optional.of(item));
-      when(userRepo.findByEmail(email)).thenReturn(Optional.of(user));
-
-      // Act
-      shoppingItemService.togglePurchased(100L, email);
-
-      // Assert
-      assertTrue(item.isPurchased());
-      assertEquals(user, item.getPurchasedBy());
-      assertNotNull(item.getPurchasedAt()); // don't assert exact time; just not null
-
-      // No explicit save() in togglePurchased; it's fine not to verify save
-      verify(shoppingItemRepo).findById(100L);
-      verify(userRepo, times(2)).findByEmail(email);
+    private ShoppingItem makeItem(Long id, Long hhId, boolean purchased, String name) {
+      ShoppingItem it = new ShoppingItem();
+      it.setItemId(id);
+      Household h = new Household();
+      h.setHouseholdId(hhId);
+      it.setHousehold(h);
+      it.setPurchased(purchased);
+      it.setName(name);
+      return it;
     }
 
     @Test
-    void shouldUnmarkAsPurchasedWhenAlreadyPurchased() {
-      // Arrange
+    void shouldMarkItemsPurchased_whenAllInHouseholdAndNotPurchased() {
       String email = "user@example.com";
-      Household household = new Household(); household.setHouseholdId(1L);
+      Long hhId = 1L;
+      User user = makeUser(email, hhId);
 
-      User user = new User();
-      user.setEmail(email);
-      user.setHousehold(household);
+      ShoppingItem i1 = makeItem(10L, hhId, false, "Milk");
+      ShoppingItem i2 = makeItem(11L, hhId, false, "Bread");
 
-      ShoppingItem item = new ShoppingItem();
-      item.setItemId(101L);
-      item.setHousehold(household);
-      item.setPurchased(true);
-      item.setPurchasedBy(user);
-      item.setPurchasedAt(LocalDateTime.now().minusMinutes(5));
-
-      when(shoppingItemRepo.findById(101L)).thenReturn(Optional.of(item));
       when(userRepo.findByEmail(email)).thenReturn(Optional.of(user));
+      when(shoppingItemRepo.findByHousehold_HouseholdIdAndItemIdIn(hhId, Arrays.asList(10L, 11L)))
+          .thenReturn(Arrays.asList(i1, i2));
 
-      // Act
-      shoppingItemService.togglePurchased(101L, email);
+      List<String> changed = shoppingItemService.markPurchasedBatch(Arrays.asList(10L, 11L), email);
 
-      // Assert
-      assertFalse(item.isPurchased());
-      assertNull(item.getPurchasedBy());
-      assertNull(item.getPurchasedAt());
+      assertEquals(2, changed.size());
+      assertTrue(i1.isPurchased());
+      assertTrue(i2.isPurchased());
+      assertEquals(user, i1.getPurchasedBy());
+      assertEquals(user, i2.getPurchasedBy());
+      assertNotNull(i1.getPurchasedAt());
+      assertNotNull(i2.getPurchasedAt());
 
-      verify(shoppingItemRepo).findById(101L);
-      verify(userRepo).findByEmail(email);
+      verify(shoppingItemRepo).saveAll(argThat(list -> StreamSupport.stream(list.spliterator(), false)
+          .collect(Collectors.toSet())
+          .containsAll(Arrays.asList(i1, i2))));
     }
 
     @Test
-    void shouldThrowAccessDeniedIfUserNotInSameHousehold() {
-      // Arrange
+    void shouldSkipAlreadyPurchasedItems_andOnlySaveWhenSomethingChanged() {
       String email = "user@example.com";
-      Household h1 = new Household(); h1.setHouseholdId(1L);
-      Household h2 = new Household(); h2.setHouseholdId(2L);
+      Long hhId = 1L;
+      User user = makeUser(email, hhId);
 
-      User user = new User();
-      user.setEmail(email);
-      user.setHousehold(h1);
+      ShoppingItem already = makeItem(10L, hhId, true, "Eggs");
+      already.setPurchasedBy(user);
+      already.setPurchasedAt(LocalDateTime.now().minusHours(1));
 
-      ShoppingItem item = new ShoppingItem();
-      item.setItemId(102L);
-      item.setHousehold(h2); // different household
+      ShoppingItem notYet = makeItem(11L, hhId, false, "Butter");
 
-      when(shoppingItemRepo.findById(102L)).thenReturn(Optional.of(item));
       when(userRepo.findByEmail(email)).thenReturn(Optional.of(user));
+      when(shoppingItemRepo.findByHousehold_HouseholdIdAndItemIdIn(hhId, Arrays.asList(10L, 11L)))
+          .thenReturn(Arrays.asList(already, notYet));
 
-      // Act & Assert
+      List<String> changed = shoppingItemService.markPurchasedBatch(Arrays.asList(10L, 11L), email);
+
+      assertEquals(1, changed.size());
+      assertEquals("Butter", changed.get(0));
+      assertTrue(notYet.isPurchased());
+      assertEquals(user, notYet.getPurchasedBy());
+      assertNotNull(notYet.getPurchasedAt());
+
+      verify(shoppingItemRepo).saveAll(anyList());
+    }
+
+    @Test
+    void shouldNotSaveWhenAllAlreadyPurchased() {
+      String email = "user@example.com";
+      Long hhId = 1L;
+      User user = makeUser(email, hhId);
+
+      ShoppingItem a = makeItem(10L, hhId, true, "A");
+      ShoppingItem b = makeItem(11L, hhId, true, "B");
+
+      when(userRepo.findByEmail(email)).thenReturn(Optional.of(user));
+      when(shoppingItemRepo.findByHousehold_HouseholdIdAndItemIdIn(hhId, Arrays.asList(10L, 11L)))
+          .thenReturn(Arrays.asList(a, b));
+
+      List<String> changed = shoppingItemService.markPurchasedBatch(Arrays.asList(10L, 11L), email);
+
+      assertTrue(changed.isEmpty());
+      verify(shoppingItemRepo, never()).saveAll(anyList());
+    }
+
+    @Test
+    void shouldThrowWhenAnyItemNotInSameHousehold() {
+      String email = "user@example.com";
+      Long hhId = 1L;
+      User user = makeUser(email, hhId);
+
+      ShoppingItem i1 = makeItem(10L, hhId, false, "Milk");
+
+      when(userRepo.findByEmail(email)).thenReturn(Optional.of(user));
+      when(shoppingItemRepo.findByHousehold_HouseholdIdAndItemIdIn(hhId, Arrays.asList(10L, 99L)))
+          .thenReturn(Collections.singletonList(i1));
+
+      List<Long> ids = Arrays.asList(10L, 99L);
       assertThrows(AccessDeniedException.class,
-          () -> shoppingItemService.togglePurchased(102L, email));
+          () -> shoppingItemService.markPurchasedBatch(ids, email));
 
-      verify(shoppingItemRepo).findById(102L);
-      verify(userRepo).findByEmail(email);
+      verify(shoppingItemRepo, never()).saveAll(anyList());
     }
 
     @Test
-    void shouldThrowIfItemNotFound() {
-      // Arrange
+    void shouldThrowWhenNoIdsProvided() {
       String email = "user@example.com";
-      when(shoppingItemRepo.findById(999L)).thenReturn(Optional.empty());
+      List<Long> ids = Collections.emptyList();
 
-      // Act & Assert
-      assertThrows(EntityNotFoundException.class,
-          () -> shoppingItemService.togglePurchased(999L, email));
+      assertThrows(IllegalArgumentException.class,
+          () -> shoppingItemService.markPurchasedBatch(ids, email));
 
-      verify(shoppingItemRepo).findById(999L);
-      verify(userRepo, never()).findByEmail(anyString());
+      verify(shoppingItemRepo, never()).saveAll(anyList());
+      verifyNoInteractions(userRepo);
     }
 
     @Test
-    void shouldThrowIfAuthenticatedUserNotFound() {
-      // Arrange
-      String email = "missing@example.com";
-      Household household = new Household(); household.setHouseholdId(1L);
+    void shouldThrowWhenTooManyIds() {
+      String email = "user@example.com";
 
-      ShoppingItem item = new ShoppingItem();
-      item.setItemId(103L);
-      item.setHousehold(household);
+      // build a list of size 201
+      List<Long> ids = Arrays.asList(new Long[201]);
+      for (int i = 0; i < ids.size(); i++) ids.set(i, (long) i + 1);
 
-      when(shoppingItemRepo.findById(103L)).thenReturn(Optional.of(item));
-      when(userRepo.findByEmail(email)).thenReturn(Optional.empty());
+      assertThrows(IllegalArgumentException.class,
+          () -> shoppingItemService.markPurchasedBatch(ids, email));
 
-      // Act & Assert
-      assertThrows(EntityNotFoundException.class,
-          () -> shoppingItemService.togglePurchased(103L, email));
+      verify(shoppingItemRepo, never()).saveAll(anyList());
+      verifyNoInteractions(userRepo);
+    }
 
-      verify(shoppingItemRepo).findById(103L);
-      verify(userRepo).findByEmail(email);
+    @Test
+    void shouldThrowWhenUserHasNoHousehold() {
+      String email = "user@example.com";
+      User user = new User();
+      user.setEmail(email);
+      user.setHousehold(null);
+
+      when(userRepo.findByEmail(email)).thenReturn(Optional.of(user));
+
+
+      List<Long> ids = Arrays.asList(1L, 2L);
+
+      assertThrows(IllegalStateException.class,
+          () -> shoppingItemService.markPurchasedBatch(ids, email));
+
+      verify(shoppingItemRepo, never()).saveAll(anyList());
     }
   }
 }

@@ -1,7 +1,7 @@
 package com.roomies.service;
 
-import com.roomies.dto.UserResponseDto;
-import com.roomies.dto.UserUpdateRequestDto;
+import com.roomies.dto.user.UserResponseDto;
+import com.roomies.dto.user.UserUpdateRequestDto;
 import com.roomies.entity.Household;
 import com.roomies.entity.Role;
 import com.roomies.entity.User;

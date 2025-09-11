@@ -1,9 +1,9 @@
 package com.roomies.controller;
 
-import com.roomies.dto.LoginRequestDto;
-import com.roomies.dto.LoginResponseDto;
-import com.roomies.dto.RefreshTokenRequestDto;
-import com.roomies.dto.RegisterRequestDto;
+import com.roomies.dto.auth.LoginRequestDto;
+import com.roomies.dto.auth.LoginResponseDto;
+import com.roomies.dto.auth.RefreshTokenRequestDto;
+import com.roomies.dto.auth.RegisterRequestDto;
 import com.roomies.service.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.http.*;

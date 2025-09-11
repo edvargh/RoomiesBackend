@@ -1,8 +1,8 @@
 package com.roomies.service;
 
-import com.roomies.dto.HouseholdCreateDto;
-import com.roomies.dto.HouseholdDetailsResponseDto;
-import com.roomies.dto.JoinHouseholdRequestDto;
+import com.roomies.dto.household.HouseholdCreateDto;
+import com.roomies.dto.household.HouseholdDetailsResponseDto;
+import com.roomies.dto.household.JoinHouseholdRequestDto;
 import com.roomies.entity.Household;
 import com.roomies.entity.Role;
 import com.roomies.entity.User;

@@ -1,4 +1,4 @@
-package com.roomies.dto;
+package com.roomies.dto.auth;
 
 /**
  * Data Transfer Object for login responses.

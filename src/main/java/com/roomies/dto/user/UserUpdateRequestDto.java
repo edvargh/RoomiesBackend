@@ -1,4 +1,4 @@
-package com.roomies.dto;
+package com.roomies.dto.user;
 
 import jakarta.validation.constraints.Size;
 

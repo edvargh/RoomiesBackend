@@ -1,13 +1,16 @@
 package com.roomies.service;
 
-import com.roomies.dto.ShoppingItemRequestDto;
-import com.roomies.dto.ShoppingItemResponseDto;
+import com.roomies.dto.shoppingitem.ShoppingItemRequestDto;
+import com.roomies.dto.shoppingitem.ShoppingItemResponseDto;
 import com.roomies.entity.Household;
 import com.roomies.entity.ShoppingItem;
 import com.roomies.entity.User;
 import com.roomies.repository.ShoppingItemRepository;
 import com.roomies.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.access.AccessDeniedException;
@@ -96,23 +99,61 @@ public class ShoppingItemService {
   }
 
   /**
-   * Toggles the purchased status of a shopping item.
+   * Marks multiple shopping items as purchased in a single batch operation.
    *
-   * @param itemId the ID of the shopping item
-   * @param email  the authenticated user's email
+   * @param ids   the list of shopping item IDs to mark as purchased
+   * @param email the authenticated user's email
+   * @return a list of item names that were marked as purchased
+   * @throws IllegalArgumentException if no IDs are provided or too many IDs
+   * @throws IllegalStateException if the user is not part of a household
+   * @throws AccessDeniedException if any item is not found or not in the user's household
    */
   @Transactional
-  public void togglePurchased(Long itemId, String email) {
-    ShoppingItem item = getAuthorizedItem(itemId, email);
-    if (!item.isPurchased()) {
-      item.setPurchased(true);
-      item.setPurchasedBy(getAuthenticatedUser(email));
-      item.setPurchasedAt(LocalDateTime.now());
-    } else {
-      item.setPurchased(false);
-      item.setPurchasedBy(null);
-      item.setPurchasedAt(null);
+  public List<String> markPurchasedBatch(List<Long> ids, String email) {
+    if (ids == null || ids.isEmpty()) {
+      throw new IllegalArgumentException("No item IDs provided");
     }
+
+    if (ids.size() > 200) {
+      throw new IllegalArgumentException("Too many IDs; max 200 per request");
+    }
+
+    User user = getAuthenticatedUser(email);
+    var household = user.getHousehold();
+    if (household == null) {
+      throw new IllegalStateException("User must be part of a household");
+    }
+
+    // Ensure we only load items from the caller's household
+    List<ShoppingItem> items = shoppingItemRepo.findByHousehold_HouseholdIdAndItemIdIn(
+        household.getHouseholdId(), ids);
+
+    Set<Long> foundIds = new HashSet<>();
+    for (var it : items) foundIds.add(it.getItemId());
+    for (Long id : ids) {
+      if (!foundIds.contains(id)) {
+        throw new AccessDeniedException("Item " + id + " not found or not in your household");
+      }
+    }
+
+    var purchasedNow = new ArrayList<String>();
+
+    for (ShoppingItem item : items) {
+      if (!item.isPurchased()) {
+        item.setPurchased(true);
+        item.setPurchasedBy(user);
+        item.setPurchasedAt(LocalDateTime.now());
+        purchasedNow.add(item.getName());
+      }
+    }
+
+    if (!purchasedNow.isEmpty()) {
+      shoppingItemRepo.saveAll(items);
+    }
+
+    log.debug("Batch purchased {} items for household {}", purchasedNow.size(), household.getHouseholdId());
+
+    return purchasedNow;
   }
 
   /**

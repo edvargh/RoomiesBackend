@@ -1,9 +1,9 @@
 package com.roomies.service;
 
-import com.roomies.dto.LoginRequestDto;
-import com.roomies.dto.LoginResponseDto;
-import com.roomies.dto.RefreshTokenRequestDto;
-import com.roomies.dto.RegisterRequestDto;
+import com.roomies.dto.auth.LoginRequestDto;
+import com.roomies.dto.auth.LoginResponseDto;
+import com.roomies.dto.auth.RefreshTokenRequestDto;
+import com.roomies.dto.auth.RegisterRequestDto;
 import com.roomies.entity.User;
 import com.roomies.repository.UserRepository;
 import com.roomies.security.JwtService;

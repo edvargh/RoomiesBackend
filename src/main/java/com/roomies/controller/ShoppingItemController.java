@@ -1,7 +1,8 @@
 package com.roomies.controller;
 
-import com.roomies.dto.ShoppingItemRequestDto;
-import com.roomies.dto.ShoppingItemResponseDto;
+import com.roomies.dto.shoppingitem.ShoppingItemIdListRequestDto;
+import com.roomies.dto.shoppingitem.ShoppingItemRequestDto;
+import com.roomies.dto.shoppingitem.ShoppingItemResponseDto;
 import com.roomies.service.ShoppingItemService;
 import jakarta.validation.Valid;
 import java.util.Map;
@@ -72,20 +73,33 @@ public class ShoppingItemController {
   }
 
   /**
-   * Toggles the purchased status of a shopping item.
+   * Marks multiple shopping items as purchased.
    *
-   * @param id          the ID of the shopping item
+   * @param request     the request DTO containing the list of item IDs to mark as purchased
+   * @param userDetails the authenticated user's details
+   * @return a response entity with a success message and details of updated items
+   */
+  @PreAuthorize("isAuthenticated()")
+  @PutMapping("/purchased")
+  public ResponseEntity<Map<String, Object>> markPurchasedBatch(
+      @Valid @RequestBody ShoppingItemIdListRequestDto request,
+      @AuthenticationPrincipal UserDetails userDetails) {
+
+    List<String> changed = shoppingItemService.markPurchasedBatch(request.getIds(), userDetails.getUsername());
+    return ResponseEntity.ok(Map.of(
+        MESSAGE_KEY, "Items marked purchased",
+        "updatedCount", changed.size(),
+        "items", changed
+    ));
+  }
+
+  /**
+   * Deletes a shopping item.
+   *
+   * @param id          the ID of the shopping item to delete
    * @param userDetails the authenticated user's details
    * @return a response entity with a success message
    */
-  @PutMapping("/{id}/purchased")
-  public ResponseEntity<Map<String, String>> togglePurchased(
-      @PathVariable Long id,
-      @AuthenticationPrincipal UserDetails userDetails) {
-    shoppingItemService.togglePurchased(id, userDetails.getUsername());
-    return ResponseEntity.ok(Map.of(MESSAGE_KEY, "Shopping item purchase status toggled successfully"));
-  }
-
   @DeleteMapping("/{id}")
   public ResponseEntity<Map<String, String>> deleteItem(
       @PathVariable Long id,
