@@ -1,6 +1,7 @@
 package com.roomies.controller;
 
 import com.roomies.dto.task.TaskCreateRequestDto;
+import com.roomies.dto.task.TaskLogResponseDto;
 import com.roomies.dto.task.TaskResponseDto;
 import com.roomies.dto.task.TaskUpdateRequestDto;
 import com.roomies.service.TaskService;
@@ -87,4 +88,16 @@ public class TaskController {
     taskService.deleteTask(id, userDetails.getUsername());
     return ResponseEntity.ok(Map.of(MESSAGE_KEY, "Task deleted successfully"));
   }
+
+  /** Retrieves paginated task completion logs for the authenticated user's household. */
+  @PreAuthorize("isAuthenticated()")
+  @GetMapping("/logs")
+  public ResponseEntity<List<TaskLogResponseDto>> getTaskLogs(
+      @AuthenticationPrincipal UserDetails userDetails,
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "20") int size
+  ) {
+    return ResponseEntity.ok(taskService.getTaskLogs(userDetails.getUsername(), page, size));
+  }
+
 }

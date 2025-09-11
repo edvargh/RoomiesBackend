@@ -2,6 +2,7 @@ package com.roomies.dto.task;
 
 import com.roomies.entity.Frequency;
 import com.roomies.entity.Rotation;
+import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
@@ -22,6 +23,7 @@ public class TaskCreateRequestDto {
   @NotNull(message = "Rotation is required")
   private Rotation rotation;
 
+  @FutureOrPresent(message = "Start date cannot be in the past")
   @NotNull(message = "Start date is required")
   private LocalDate startDate;
 
