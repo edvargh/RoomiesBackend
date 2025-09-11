@@ -1,4 +1,4 @@
-package com.roomies.dto;
+package com.roomies.dto.shoppingitem;
 
 import com.roomies.entity.ShoppingItem;
 import java.time.LocalDateTime;

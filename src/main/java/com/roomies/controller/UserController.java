@@ -1,7 +1,7 @@
 package com.roomies.controller;
 
-import com.roomies.dto.UserResponseDto;
-import com.roomies.dto.UserUpdateRequestDto;
+import com.roomies.dto.user.UserResponseDto;
+import com.roomies.dto.user.UserUpdateRequestDto;
 import com.roomies.service.UserService;
 import jakarta.validation.Valid;
 import java.util.Map;

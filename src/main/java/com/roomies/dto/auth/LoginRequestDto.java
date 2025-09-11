@@ -1,4 +1,4 @@
-package com.roomies.dto;
+package com.roomies.dto.auth;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;

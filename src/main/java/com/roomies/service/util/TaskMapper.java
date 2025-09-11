@@ -1,7 +1,7 @@
 package com.roomies.service.util;
 
-import com.roomies.dto.TaskResponsibleDto;
-import com.roomies.dto.TaskResponseDto;
+import com.roomies.dto.task.TaskResponsibleDto;
+import com.roomies.dto.task.TaskResponseDto;
 import com.roomies.entity.Task;
 import com.roomies.entity.TaskResponsible;
 

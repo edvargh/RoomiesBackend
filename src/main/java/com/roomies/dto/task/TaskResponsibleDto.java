@@ -1,4 +1,4 @@
-package com.roomies.dto;
+package com.roomies.dto.task;
 
 public class TaskResponsibleDto {
 

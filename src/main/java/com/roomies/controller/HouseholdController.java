@@ -1,8 +1,8 @@
 package com.roomies.controller;
 
-import com.roomies.dto.HouseholdCreateDto;
-import com.roomies.dto.HouseholdDetailsResponseDto;
-import com.roomies.dto.JoinHouseholdRequestDto;
+import com.roomies.dto.household.HouseholdCreateDto;
+import com.roomies.dto.household.HouseholdDetailsResponseDto;
+import com.roomies.dto.household.JoinHouseholdRequestDto;
 import com.roomies.service.HouseholdService;
 import jakarta.validation.Valid;
 import java.util.Map;

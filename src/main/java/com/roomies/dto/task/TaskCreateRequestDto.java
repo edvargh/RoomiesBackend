@@ -1,4 +1,4 @@
-package com.roomies.dto;
+package com.roomies.dto.task;
 
 import com.roomies.entity.Frequency;
 import com.roomies.entity.Rotation;
