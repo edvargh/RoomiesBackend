@@ -9,6 +9,7 @@ import com.roomies.repository.*;
 import com.roomies.service.util.TaskMapper;
 import com.roomies.service.util.TaskSchedule;
 import jakarta.persistence.EntityNotFoundException;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -276,16 +277,23 @@ public class TaskService {
     if (task.getFrequency() == Frequency.ONCE && task.getNextDue() == null) {
       throw new IllegalStateException("Task already completed");
     }
+
+    // Determine current due (fallback to first due if nextDue is not set)
+    LocalDateTime due = (task.getNextDue() != null)
+        ? task.getNextDue()
+        : TaskSchedule.firstDue(task.getStartDate());
+
+    // Block early completion (compare by date only, ignore time)
+    if (LocalDate.now().isBefore(due.toLocalDate())) {
+      throw new IllegalStateException("Task cannot be completed before its due date");
+    }
+
     User user = getAuthenticatedUser(email);
 
     // Write completion log
     logRepo.save(new TaskLog(task, user));
 
     // Advance schedule
-    LocalDateTime due = task.getNextDue() != null
-        ? task.getNextDue()
-        : TaskSchedule.firstDue(task.getStartDate());
-
     if (task.getFrequency() == Frequency.ONCE) {
       task.setNextDue(null); // terminal
     } else {
