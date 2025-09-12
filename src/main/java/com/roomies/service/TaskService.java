@@ -3,13 +3,22 @@ package com.roomies.service;
 import com.roomies.dto.task.TaskCreateRequestDto;
 import com.roomies.dto.task.TaskResponseDto;
 import com.roomies.dto.task.TaskUpdateRequestDto;
+import com.roomies.dto.task.TaskLogResponseDto;
 import com.roomies.entity.*;
 import com.roomies.repository.*;
 import com.roomies.service.util.TaskMapper;
 import com.roomies.service.util.TaskSchedule;
 import jakarta.persistence.EntityNotFoundException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -92,17 +101,58 @@ public class TaskService {
     Long hhId = household.getHouseholdId();
     log.debug("Retrieving tasks for household ID: {}", hhId);
 
-    return taskRepo.findByHousehold_HouseholdIdOrderByNextDueAsc(hhId).stream()
-        .map(task -> TaskMapper.toDto(task,
-            respRepo.findAllByTask_TaskIdOrderByPositionAsc(task.getTaskId())))
+    // Step 1: fetch tasks
+    List<Task> tasks = taskRepo.findByHousehold_HouseholdIdOrderByNextDueAsc(hhId);
+    if (tasks.isEmpty()) return List.of();
+
+    // Step 2: collect IDs and batch-fetch all responsibles in one query
+    List<Long> taskIds = tasks.stream().map(Task::getTaskId).toList();
+
+    List<TaskResponsible> allResponsibles =
+        respRepo.findAllByTask_TaskIdInOrderByTask_TaskIdAscPositionAsc(taskIds);
+
+    // Step 3: group responsibles by taskId, preserving order
+    Map<Long, List<TaskResponsible>> byTaskId = new LinkedHashMap<>();
+    for (TaskResponsible tr : allResponsibles) {
+      Long tid = tr.getTask().getTaskId();
+      byTaskId.computeIfAbsent(tid, k -> new ArrayList<>()).add(tr);
+    }
+
+    // Step 4: map to DTOs using pre-grouped lists (no extra queries)
+    return tasks.stream()
+        .map(t -> TaskMapper.toDto(t, byTaskId.getOrDefault(t.getTaskId(), List.of())))
         .toList();
   }
 
+  /**
+   * Retrieves a specific task by ID; must belong to the authenticated user's household.
+   */
   @Transactional(readOnly = true)
   public TaskResponseDto getTaskById(Long taskId, String email) {
     Task task = getAuthorizedTask(taskId, email);
     log.debug("Retrieving task {} for household {}", taskId, task.getHousehold().getHouseholdId());
     return TaskMapper.toDto(task, respRepo.findAllByTask_TaskIdOrderByPositionAsc(task.getTaskId()));
+  }
+
+  /**
+   * Retrieves paginated task completion logs for the authenticated user's household.
+   */
+  @Transactional(readOnly = true)
+  public List<TaskLogResponseDto> getTaskLogs(String email, int page, int size) {
+    User user = getAuthenticatedUser(email);
+    Household household = user.getHousehold();
+    if (household == null) {
+      throw new IllegalStateException("User must be part of a household");
+    }
+
+    // Guardrails on size (e.g., max 100)
+    int safePage = Math.max(0, page);
+    int safeSize = Math.min(Math.max(1, size), 100);
+
+    var pageable = PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "completedAt"));
+    var logsPage = logRepo.findByTask_Household_HouseholdId(household.getHouseholdId(), pageable);
+
+    return TaskLogResponseDto.fromEntities(logsPage.getContent());
   }
 
   /**
@@ -112,6 +162,17 @@ public class TaskService {
   public void updateTask(Long taskId, TaskUpdateRequestDto dto, String email) {
     Task task = getAuthorizedTask(taskId, email);
 
+    updateCoreFields(task, dto);
+
+    if (dto.getResponsibleUserIds() != null) {
+      replaceResponsibles(task, dto.getResponsibleUserIds());
+    }
+
+    log.debug("Updated task with ID: {}", taskId);
+  }
+
+  /** Core field updates; no branching except a single null-check. */
+  private void updateCoreFields(Task task, TaskUpdateRequestDto dto) {
     task.setDescription(dto.getDescription());
     task.setFrequency(dto.getFrequency());
     task.setRotation(dto.getRotation());
@@ -120,7 +181,90 @@ public class TaskService {
     if (task.getNextDue() == null) {
       task.setNextDue(TaskSchedule.firstDue(dto.getStartDate()));
     }
-    log.debug("Updated task with ID: {}", taskId);
+  }
+
+  /** Replace + reorder responsibles, validating household membership. */
+  private void replaceResponsibles(Task task, List<Long> userIds) {
+    List<Long> ordered = dedupePreservingOrder(userIds);
+    requireNonEmpty(ordered);
+
+    Long householdId = task.getHousehold().getHouseholdId();
+    Map<Long, User> usersById = loadAndValidateUsers(ordered, householdId);
+
+    List<TaskResponsible> current = respRepo.findAllByTask_TaskIdOrderByPositionAsc(task.getTaskId());
+    Map<Long, TaskResponsible> currentByUserId = indexByUserId(current);
+
+    removeUnlistedResponsibles(current, ordered);
+    upsertAndReorderResponsibles(task, ordered, usersById, currentByUserId);
+  }
+
+  private List<Long> dedupePreservingOrder(List<Long> ids) {
+    if (ids == null) return List.of();
+    List<Long> out = new ArrayList<>(ids.size());
+    Set<Long> seen = new HashSet<>();
+    for (Long id : ids) {
+      if (id != null && seen.add(id)) out.add(id);
+    }
+    return out;
+  }
+
+  private void requireNonEmpty(List<?> list) {
+    if (list.isEmpty()) throw new IllegalArgumentException("At least one responsible user is required");
+  }
+
+  /** Load users and enforce same-household membership. */
+  private Map<Long, User> loadAndValidateUsers(List<Long> ids, Long householdId) {
+    Map<Long, User> users = new HashMap<>(ids.size());
+    for (Long uid : ids) {
+      User u = userRepo.findById(uid)
+          .orElseThrow(() -> new EntityNotFoundException("User not found: " + uid));
+      if (u.getHousehold() == null || !householdId.equals(u.getHousehold().getHouseholdId())) {
+        throw new AccessDeniedException("Responsible must be in the same household");
+      }
+      users.put(uid, u);
+    }
+    return users;
+  }
+
+  private Map<Long, TaskResponsible> indexByUserId(List<TaskResponsible> list) {
+    Map<Long, TaskResponsible> map = new HashMap<>(list.size());
+    for (TaskResponsible tr : list) {
+      map.put(tr.getUser().getUserId(), tr);
+    }
+    return map;
+  }
+
+  private void removeUnlistedResponsibles(List<TaskResponsible> current, List<Long> orderedIds) {
+    List<TaskResponsible> toRemove = new ArrayList<>();
+    Set<Long> keep = new HashSet<>(orderedIds);
+    for (TaskResponsible tr : current) {
+      if (!keep.contains(tr.getUser().getUserId())) toRemove.add(tr);
+    }
+    if (!toRemove.isEmpty()) respRepo.deleteAll(toRemove);
+  }
+
+  /** Create missing responsibles and normalize positions to 1.N. */
+  private void upsertAndReorderResponsibles(
+      Task task,
+      List<Long> orderedIds,
+      Map<Long, User> usersById,
+      Map<Long, TaskResponsible> currentByUserId
+  ) {
+    List<TaskResponsible> changes = new ArrayList<>();
+    int pos = 1;
+
+    for (Long uid : orderedIds) {
+      TaskResponsible existing = currentByUserId.get(uid);
+      if (existing == null) {
+        changes.add(new TaskResponsible(task, usersById.get(uid), pos));
+      } else if (existing.getPosition() != pos) {
+        existing.setPosition(pos);
+        changes.add(existing);
+      }
+      pos++;
+    }
+
+    if (!changes.isEmpty()) respRepo.saveAll(changes);
   }
 
   /**
@@ -148,19 +292,25 @@ public class TaskService {
       task.setNextDue(TaskSchedule.nextAfter(due, task.getFrequency()));
     }
 
-    // Rotate if SINGLE
-    if (task.getRotation() == Rotation.SINGLE) {
-      List<TaskResponsible> list = respRepo.findAllByTask_TaskIdOrderByPositionAsc(task.getTaskId());
-      if (list.size() > 1) {
-        TaskResponsible first = list.remove(0);
-        list.add(first);
-        int p = 1;
-        for (TaskResponsible tr : list) tr.setPosition(p++);
-        respRepo.saveAll(list);
-      }
-    }
+    rotateIfSingle(task);
 
     log.debug("Completed task {} by user {}", taskId, user.getUserId());
+  }
+
+  private void rotateIfSingle(Task task) {
+    if (task.getRotation() != Rotation.SINGLE) return;
+
+    List<TaskResponsible> rs =
+        respRepo.findAllByTask_TaskIdOrderByPositionAsc(task.getTaskId());
+
+    if (rs.size() < 2) return;
+
+    int n = rs.size();
+    for (TaskResponsible tr : rs) {
+      int pos = tr.getPosition();
+      tr.setPosition(pos == 1 ? n : pos - 1);
+    }
+    respRepo.saveAll(rs);
   }
 
   /**

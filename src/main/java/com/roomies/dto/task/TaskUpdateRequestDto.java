@@ -2,11 +2,14 @@ package com.roomies.dto.task;
 
 import com.roomies.entity.Frequency;
 import com.roomies.entity.Rotation;
+import jakarta.annotation.Nullable;
+import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
+import java.util.List;
 
 public class TaskUpdateRequestDto {
 
@@ -20,8 +23,13 @@ public class TaskUpdateRequestDto {
   @NotNull(message = "Rotation is required")
   private Rotation rotation;
 
+  @FutureOrPresent(message = "Start date cannot be in the past")
   @NotNull(message = "Start date is required")
   private LocalDate startDate;
+
+  @Nullable
+  @Size(min = 1, message = "At least one responsible user is required when provided")
+  private List<Long> responsibleUserIds;
 
   public TaskUpdateRequestDto() {
     // Default constructor
@@ -58,4 +66,8 @@ public class TaskUpdateRequestDto {
   public void setStartDate(LocalDate startDate) {
     this.startDate = startDate;
   }
+
+  @Nullable
+  public List<Long> getResponsibleUserIds() { return responsibleUserIds; }
+  public void setResponsibleUserIds(@Nullable List<Long> responsibleUserIds) { this.responsibleUserIds = responsibleUserIds; }
 }
