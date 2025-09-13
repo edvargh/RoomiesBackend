@@ -11,6 +11,7 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.mail.MailSendException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -67,7 +68,12 @@ public class AuthService {
     u.setConfirmed(false);
 
     userRepo.save(u);
-    emailService.sendVerificationMail(req.getEmail(), token);
+    try {
+      emailService.sendVerificationMail(req.getEmail(), token);
+    } catch (MailSendException ex) {
+      log.error("Verification email failed for {}. Token={} (user can tap 'Resend')",
+          req.getEmail(), token, ex);
+    }
   }
 
   /**
