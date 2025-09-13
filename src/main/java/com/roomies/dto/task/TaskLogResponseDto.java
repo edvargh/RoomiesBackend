@@ -3,7 +3,7 @@ package com.roomies.dto.task;
 import com.roomies.entity.Task;
 import com.roomies.entity.TaskLog;
 import com.roomies.entity.User;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 
 public class TaskLogResponseDto {
@@ -12,7 +12,7 @@ public class TaskLogResponseDto {
   private String taskDescription;
   private Long completedByUserId;
   private String completedByFullName;
-  private LocalDateTime completedAt;
+  private Instant completedAt;
 
   public TaskLogResponseDto() {}
 
@@ -53,6 +53,6 @@ public class TaskLogResponseDto {
   public String getCompletedByFullName() { return completedByFullName; }
   public void setCompletedByFullName(String completedByFullName) { this.completedByFullName = completedByFullName; }
 
-  public LocalDateTime getCompletedAt() { return completedAt; }
-  public void setCompletedAt(LocalDateTime completedAt) { this.completedAt = completedAt; }
+  public Instant getCompletedAt() { return completedAt; }
+  public void setCompletedAt(Instant completedAt) { this.completedAt = completedAt; }
 }

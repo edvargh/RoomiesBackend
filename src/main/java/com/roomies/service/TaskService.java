@@ -289,9 +289,8 @@ public class TaskService {
     }
 
     User user = getAuthenticatedUser(email);
-
     // Write completion log
-    logRepo.save(new TaskLog(task, user));
+    logRepo.save(new TaskLog(task, user, java.time.Instant.now()));
 
     // Advance schedule
     if (task.getFrequency() == Frequency.ONCE) {

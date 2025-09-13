@@ -634,8 +634,8 @@ class TaskServiceTest {
       Task t2 = task(102L, h, "Vacuum");
 
       // two logs (order in PageImpl content doesn't matter; sort is asserted via captured Pageable)
-      TaskLog l1 = new TaskLog(t1, u);
-      TaskLog l2 = new TaskLog(t2, u);
+      TaskLog l1 = new TaskLog(t1, u, java.time.Instant.now());
+      TaskLog l2 = new TaskLog(t2, u, java.time.Instant.now());
 
       when(userRepo.findByEmail(email)).thenReturn(Optional.of(u));
 
