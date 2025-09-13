@@ -174,14 +174,50 @@ public class TaskService {
 
   /** Core field updates; no branching except a single null-check. */
   private void updateCoreFields(Task task, TaskUpdateRequestDto dto) {
+    boolean startChanged = !task.getStartDate().equals(dto.getStartDate());
+    boolean freqChanged  = task.getFrequency() != dto.getFrequency();
+
+    // Always update the core fields
     task.setDescription(dto.getDescription());
     task.setFrequency(dto.getFrequency());
     task.setRotation(dto.getRotation());
     task.setStartDate(dto.getStartDate());
 
-    if (task.getNextDue() == null) {
-      task.setNextDue(TaskSchedule.firstDue(dto.getStartDate()));
+    // If neither startDate nor frequency changed, we leave nextDue as-is.
+    if (!(startChanged || freqChanged)) {
+      // However, if nextDue is missing for some reason, initialize it.
+      if (task.getNextDue() == null && task.getFrequency() != Frequency.ONCE) {
+        task.setNextDue(alignNextDueFromStart(dto.getStartDate(), dto.getFrequency()));
+      } else if (task.getNextDue() == null && task.getFrequency() == Frequency.ONCE) {
+        task.setNextDue(TaskSchedule.firstDue(dto.getStartDate()));
+      }
+      return;
     }
+
+    // Recompute nextDue when schedule anchor changes
+    if (dto.getFrequency() == Frequency.ONCE) {
+      // If the ONCE task is already completed, keep it completed.
+      if (task.getNextDue() != null) {
+        task.setNextDue(TaskSchedule.firstDue(dto.getStartDate()));
+      }
+    } else {
+      // Repeating: re-anchor and move forward to today-or-later
+      task.setNextDue(alignNextDueFromStart(dto.getStartDate(), dto.getFrequency()));
+    }
+  }
+
+  /**
+   * Recompute the next due for repeating tasks from the new start date.
+   * Ensures the result is today or in the future (never in the past).
+   */
+  private LocalDateTime alignNextDueFromStart(LocalDate startDate, Frequency frequency) {
+    LocalDateTime candidate = TaskSchedule.firstDue(startDate);
+    LocalDate today = LocalDate.now();
+    // Advance while the due date is before today (date-only compare)
+    while (candidate.toLocalDate().isBefore(today)) {
+      candidate = TaskSchedule.nextAfter(candidate, frequency);
+    }
+    return candidate;
   }
 
   /** Replace + reorder responsibles, validating household membership. */
