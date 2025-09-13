@@ -1,7 +1,7 @@
 package com.roomies.entity;
 
 import jakarta.persistence.*;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Entity
 @Table(name = "task_logs",
@@ -29,12 +29,13 @@ public class TaskLog {
   @Column(name = "completed_at",
       columnDefinition = "DATETIME DEFAULT CURRENT_TIMESTAMP",
       insertable = false, updatable = false)
-  private LocalDateTime completedAt;
+  private Instant completedAt;
 
   public TaskLog() {}
-  public TaskLog(Task task, User user) {
+  public TaskLog(Task task, User user, Instant completedAt) {
     this.task = task;
     this.completedBy = user;
+    this.completedAt = completedAt;
   }
 
   /* getters */
@@ -47,5 +48,5 @@ public class TaskLog {
   public User getCompletedBy()        { return completedBy; }
   public void setCompletedBy(User u)  { this.completedBy = u; }
 
-  public LocalDateTime getCompletedAt(){ return completedAt; }
+  public Instant getCompletedAt(){ return completedAt; }
 }
